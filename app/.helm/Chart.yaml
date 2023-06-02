@@ -1,0 +1,11 @@
+apiVersion: v2
+name: kutt
+description: Kutt is a free modern URL shortener.
+type: application
+version: 2.5.3
+appVersion: "v2.7.4"
+maintainers:
+  - name: mohamed ehab
+    email: m.ehabzaki@gmail.com
+sources:
+  - https://github.com/thedevs-network/kutt

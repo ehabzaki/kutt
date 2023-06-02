@@ -1,0 +1,148 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kutt.fullname" . }}
+  labels:
+    {{- include "kutt.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      {{- include "kutt.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "kutt.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "kutt.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          env:
+            {{- if .Values.kutt.admin.emails }}
+            # Admin Settings
+            - name: ADMIN_EMAILS
+              value: {{ .Values.kutt.admin.emails | quote }}
+            {{- end }}
+            # Configuration Settings
+            {{- if .Values.kutt.config.defaultMaxStatsPerLink }}
+            - name: DEFAULT_MAX_STATS_PER_LINK
+              value: {{ .Values.kutt.config.defaultMaxStatsPerLink | quote }}
+            {{- end }}
+            - name: MAIL_HOST
+              value: "-"
+            - name: MAIL_PORT
+              value: "5345"
+            - name: MAIL_USER
+              value: "-"
+            - name: MAIL_PASSWORD
+              value: "-"  
+            - name: DISALLOW_ANONYMOUS_LINKS
+              value: {{ .Values.kutt.config.disallowAnonymousLinks | quote }}
+            - name: DISALLOW_REGISTRATION
+              value: {{ .Values.kutt.config.disallowRegistration | quote }}
+            - name: LINK_LENGTH
+              value: {{ .Values.kutt.config.linkLength | quote }}
+            - name: NON_USER_COOLDOWN
+              value: {{ .Values.kutt.config.nonUserCooldown | quote }}
+            - name: SITE_NAME
+              value: {{ .Values.kutt.config.siteName | quote }}
+            - name: USER_LIMIT_PER_DAY
+              value: {{ .Values.kutt.config.userLimitPerDay | quote }}
+            - name: CUSTOM_DOMAIN_USE_HTTPS
+              value: "true"
+            - name: DEFAULT_DOMAIN
+              value: {{ .Values.kutt.config.defaultDomain| quote }} 
+
+            # JWT Settings
+            - name: JWT_SECRET
+              {{- if .Values.kutt.jwt.existingSecret }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.kutt.jwt.existingSecret }}
+                  key: JWT_SECRET
+              {{- else }}
+              value: {{ .Values.kutt.jwt.key }}
+              {{- end }}
+            # Database Settings
+            - name: DB_HOST
+              value: {{ .Values.postgresql.hostname | quote }}
+            - name: DB_PORT
+              value: {{ .Values.postgresql.port | quote }}
+            - name: DB_NAME
+              value: {{ .Values.postgresql.database  | quote }}
+            - name: DB_USER
+              value: {{ .Values.postgresql.username | quote }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kutt-postgres
+                  key: password
+            - name: DB_SSL
+              value: "false"
+            # Redis Settings
+            - name: REDIS_HOST
+              value: {{ .Values.redis.hostname | quote }}
+            - name: REDIS_PORT
+              value: {{ .Values.redis.port | quote }}
+
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kutt-redis
+                  key: password
+
+            {{- range .Values.extraEnv }}
+            {{- if and (.name) (.value) }}
+            - name: {{ .name | quote }}
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- end }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /api/v2/health
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /api/v2/health
+              port: http
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

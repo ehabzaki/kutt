@@ -1,0 +1,22 @@
+---
+provisioners:
+  - name: default
+    limits:
+      cpu: 250
+    selector: mb-dev
+    requirements:
+      - key: karpenter.sh/capacity-type
+        operator: In
+        values: [spot]
+      - key: karpenter.k8s.aws/instance-family
+        operator: In
+        values: [t3, t3a, m4, m5, m5a, m6a, c4, c5, c5a, c6a, r6, r6a, r5, r5a]
+      - key: karpenter.k8s.aws/instance-size
+        operator: In
+        values: [nano, micro, small,medium]
+      - key: kubernetes.io/arch
+        operator: In
+        values: [amd64]
+      - key: kubernetes.io/os
+        operator: In
+        values: [linux]
